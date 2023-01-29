@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>网页版五子棋</title>
+		<style>
+			.title{
+				text-align: center;
+			}
+			#chess{
+				display: block;
+				margin: 50px auto;
+				box-shadow: 5px 5px 5px #b9b9b9,-2px -2px 2px #efefef;
+				cursor: pointer;
+			}
+			div{
+				text-align: center;
+			}
+			.restart{
+				display: inline;
+				padding: 10px 20px;
+				border-radius: 10px;
+				background-color: pink;
+				color: balck;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<h3 class="title">五子棋</h3>
+		<canvas id="chess" width="450px" height="450px"></canvas>
+		<div>
+			<div class="restart">重新开始</div>
+		</div>
+	</body>
+	<script>
+		//1.画棋盘
+		let chess = document.getElementById('chess');
+		let restart = document.getElementsByClassName('restart')[0];
+		let title = document.getElementsByClassName('title')[0];
+		let ctx = chess.getContext("2d");
+		ctx.strokeStyle = "#b9b9b9";
+		window.onload = function(){
+			(
+				function(){
+					for(let i = 0; i < 15; i++){
+						ctx.moveTo(15,15+i*30);
+						ctx.lineTo(435,15+i*30);
+						ctx.stroke();
+						ctx.moveTo(15+i*30,15);
+						ctx.lineTo(15+i*30,435);
+						ctx.stroke();
+					}
+				}
+			)()
+		}
+		
+		//统计赢法(正斜线，竖线，反斜线，横线)（用三维数组记录，前两位表示坐标，第三位表示编号）
+		let wins = [];
+		for(let i = 0; i < 15; i++){
+			wins[i] = [];
+			for(let j = 0; j < 15; j++){
+				wins[i][j] = [];
+			}
+		}
+		let id = 0;
+		for(let i = 0; i < 11; i++){
+			for(let j = 0; j < 11; j++){
+				for(let k = 0; k < 5; k++){
+					wins[i+k][j+k][id] = true;
+				}
+				id++;
+			}
+		}
+		for(let i = 0; i < 15; i++){
+			for(let j = 0; j < 11; j++){
+				for(let k = 0; k < 5; k++){
+					wins[i][j+k][id] = true;
+				}
+				id++;
+			}
+		}
+		for(let i = 0; i < 11; i++){
+			for(let j = 14; j > 4; j--){
+				for(let k = 0; k < 5; k++){
+					wins[i+k][j-k][id] = true;
+				}
+				id++;
+			}
+		}
+		for(let i = 0; i < 11; i++){
+			for(let j = 0; j < 15; j++){
+				for(let k = 0; k < 5; k++){
+					wins[i+k][j][id] = true;
+				}
+				id++;
+			}
+		}
+		
+		//人下棋(用二维数组保存棋盘下棋状况，用二维数组记录每种赢法的得风)
+		let chessBoard = new Array(15).fill(0).map(() => new Array(15).fill(0));
+		let me = true;
+		let gameOver = false;
+		let myWin = new Array(id).fill(0);
+		let computerWin = new Array(id).fill(0);
+		chess.onclick = function(e){
+			if(!me) return;
+			if(gameOver) return;
+			let i = Math.floor(e.offsetX / 30);
+			let j = Math.floor(e.offsetY / 30);
+			if(chessBoard[i][j]== 0 && me){
+				drawChess(i,j,me);
+				chessBoard[i][j] = 1;
+				for(let k = 0; k < id; k++){
+					if(wins[i][j][k]){
+						myWin[k]++;
+						if(myWin[k] == 5){
+							title.innerHTML = '恭喜你，你赢了！'
+							gameOver = !gameOver;
+						}
+					}
+				}
+				me = !me;
+			}
+			if(!me && !gameOver){
+				computer();
+				if(!gameOver){
+					me = !me;
+				}
+			}
+		}
+		
+		//计算机下棋(对两种棋字的得分情况分析)
+		function computer(){
+			//对空白位置人得分 和 计算机得分 情况 分析
+			let myScore = new Array(15).fill(0).map(() => new Array(15).fill(0));
+			let computerScore = new Array(15).fill(0).map(() => new Array(15).fill(0));
+			let max = 0; x = 0; y = 0;//保存空白位置的坐标和空白位置的最大得分情况
+			for(let i = 0; i < 15; i++){
+				for(let j = 0; j < 15; j++){
+					if(chessBoard[i][j] == 0){//对未下棋位置分析
+						for(let k = 0; k < id; k++){
+							if(wins[i][j][k]){//对当前赢法得分分析
+								if(myWin[k] == 1){
+									myScore[i][j] += 200;
+								}else if(myWin[k] == 2){
+									myScore[i][j] += 400;
+								}else if(myWin[k] == 3){
+									myScore[i][j] += 2000;
+								}else if(myWin[k] == 4){
+									myScore[i][j] += 4000;
+								}
+								
+								if(computerWin[k] == 1){
+									computerScore[i][j] += 220;
+								}else if(computerWin[k] == 2){
+									computerScore[i][j] += 420;
+								}else if(computerWin[k] == 3){
+									computerScore[i][j] += 2200;
+								}else if(computerWin[k] == 4){
+									computerScore[i][j] += 4200;
+								}
+							}
+						}
+						if(myScore[i][j] > max){//拦截人得分
+							max = myScore[i][j];
+							x = i;
+							y = j;
+						}else if(myScore[i][j] == max){
+							if(computerScore[i][j] > max){//加大计算机优势
+								max = computerScore[i][j];
+								x = i;
+								y = j;
+							}
+							}
+							if(computerScore[i][j] > max){
+								max = computerScore[i][j];
+								x = i;
+								y = j;
+							}else if(computerScore[i][j] == max){
+								if(myScore[i][j] > max){
+									max = myScore[i][j];
+									x = i;
+									y = j;
+								}
+								}
+					}
+				}
+			}
+			drawChess(x,y,me);
+			chessBoard[x][y] = 1;
+			for(let k = 0; k < id; k++){
+				if(wins[x][y][k]){
+					computerWin[k]++;
+					if(computerWin[k] == 5){
+						title.innerHTML = '很抱歉，你输了';
+						gameOver = !gameOver;
+					}
+				}
+			}
+		}
+		
+		//.画棋子
+		function drawChess(x,y,me){
+			ctx.beginPath();
+			ctx.arc(15+x*30,15+y*30,12,0,2*Math.PI);
+			ctx.closePath();
+			let color;
+			if(me == true){
+				color = 'black';
+			}else{
+				color = 'red';
+			}
+			ctx.fillStyle = color;
+			ctx.fill();
+		}
+		
+		//清除棋子
+		function clearChess(x,y,r,ctx){
+			let stepClear = 1;
+			clearArc(x,y,r);
+			function clearArc(x,y,r){
+				let calcWidth = r - stepClear;
+				let calcHeight = Math.sqrt(r * r - calcWidth * calcWidth);
+				let posX = x - calcWidth;
+				let posY = y - calcHeight;
+				let widthX = 2 * calcWidth;
+				let heightY = 2 * calcHeight;
+				if(stepClear <= r){
+					ctx.clearRect(posX,posY,widthX,heightY);
+					stepClear += 1;
+					clearArc(x,y,r);
+				}
+			}
+		}
+		
+		//重新开始
+		restart.onclick = function(){
+			for(let i = 0; i < 15; i++){
+				for(let j = 0; j < 15; j++){
+					if(chessBoard[i][j] == 1){
+						console.log(i,j);
+						clearChess(15+i*30,15+j*30,12,ctx);
+						chessBoard[i][j] = 0;
+					}
+				}
+			}
+			title.innerHTML = '五子棋';
+			me = true;
+			gameOver = false;
+			
+			for(let i = 0; i < id; i++){
+				myWin[i] = 0;
+				computerWin[i] = 0;
+			}
+		}
+	</script>
+</html>
